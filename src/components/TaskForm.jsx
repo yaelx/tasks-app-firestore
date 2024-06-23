@@ -1,20 +1,16 @@
-function Form({ todos, setTodos }) {
-  const handleSubmit = (event) => {
+function TaskForm({ todos, addTask }) {
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
-    const value = event.target.todo.value;
-    const newTodo = {
-      title: value,
-      id: self.crypto.randomUUID(),
-      is_completed: false,
-    };
-
+    const input = event.target.todo.value;
+    addTask(input);
     // Update todo state
-    setTodos((prevTodos) => [...prevTodos, newTodo]);
+    // setTodos((prevTodos) => [...prevTodos, newTodo]);
 
     // Store updated todo list in local storage
-    const updatedTodoList = JSON.stringify([...todos, newTodo]);
-    localStorage.setItem("todos", updatedTodoList);
+    // const updatedTodoList = JSON.stringify([...todos, newTodo]);
+    // localStorage.setItem("todos", updatedTodoList);
 
     event.target.reset();
   };
@@ -52,4 +48,4 @@ function Form({ todos, setTodos }) {
   );
 }
 
-export default Form;
+export default TaskForm;

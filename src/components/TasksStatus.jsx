@@ -1,9 +1,8 @@
-function TODOHero({ todos_completed, total_todos }) {
+function TasksStatus({ todos_completed, total_todos }) {
   return (
-    <section className="todohero_section">
+    <section className="status_section">
       <div>
         <p className="text_large">Task Done</p>
-        <p className="text_small">Keep it up</p>
       </div>
       <div>
         {todos_completed}/{total_todos}
@@ -12,4 +11,4 @@ function TODOHero({ todos_completed, total_todos }) {
   );
 }
 
-export default TODOHero;
+export default TasksStatus;
