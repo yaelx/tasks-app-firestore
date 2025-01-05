@@ -15,8 +15,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  height: 100%; margin: 0px; padding: 0px;
   width: 100vw;
 }
+
+#full { background: #0f0; height: 100% }
 
 button {
   cursor: pointer;

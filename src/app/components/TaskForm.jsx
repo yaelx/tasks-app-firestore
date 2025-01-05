@@ -1,5 +1,7 @@
-function TaskForm({ todos, addTask }) {
+"use client";
+import React from "react";
 
+const TaskForm = ({ todos, addTask }) => {
   const handleSubmit = async (event) => {
     event.preventDefault();
 
@@ -46,6 +48,6 @@ function TaskForm({ todos, addTask }) {
       </button>
     </form>
   );
-}
+};
 
 export default TaskForm;

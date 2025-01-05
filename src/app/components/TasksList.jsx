@@ -1,5 +1,5 @@
 import React from "react";
-import { db } from "../app/firebase.js";
+import { db } from "../firebase.js";
 import {
   doc,
   deleteDoc,

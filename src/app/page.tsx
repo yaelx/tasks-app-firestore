@@ -1,74 +1,96 @@
 "use client";
 import React from "react";
-import { storage, auth, db } from "./firebase";
 import {
-  collection,
-  query,
-  orderBy,
-  onSnapshot,
-  addDoc,
-  serverTimestamp,
-  getDocs,
-} from "firebase/firestore";
-import TaskForm from "../components/TaskForm";
-import Header from "../components/Header";
-import TasksStatus from "../components/TasksStatus";
-import TasksList from "../components/TasksList";
+  BrowserRouter,
+  useNavigate,
+  NavLink,
+  Link,
+  Routes,
+  Route,
+} from "react-router-dom";
+import Tasks from "../app/pages/Tasks";
+import Signup from "../app/pages/Signup";
+import Login from "../app/pages/Login";
+import Home from "./pages/Home";
+import NotFound from "./pages/NotFound";
+import ProtectedRoute from "./pages//ProtectedRoute";
+import ThemeProvider from "@mui/material/styles/ThemeProvider";
+import { Box } from "@mui/material";
+import AppHeader from "./components/AppHeader";
+import { theme } from "./styles/theme";
+import { AuthProvider, RequireAuth, useAuth } from "./context/AuthContext";
 
-const colRef = collection(db, "todos");
-const q = query(colRef, orderBy("timestamp", "desc"));
+const pages = [
+  { name: "signup", link: "/signup" },
+  { name: "login", link: "/login" },
+  { name: "tasks", link: "/tasks" },
+];
 
-function Home() {
-  const [todos, setTodos] = React.useState([]);
+const AuthStatus = () => {
+  let auth = useAuth();
+  let navigate = useNavigate();
 
-  // // Retrieve data from localStorage when component mounts
-  // React.useEffect(() => {
-  //   const storedTodos = localStorage.getItem("todos");
-  //   if (storedTodos) {
-  //     setTodos(JSON.parse(storedTodos));
-  //   }
-  // }, []);
-
-  const getFirestoreDocs = React.useCallback(async () => {
-    const { docs } = await getDocs(q);
-    const data = docs.map((doc) => {
-      return {
-        id: doc.id,
-        ...doc.data(),
-      };
-    });
-    setTodos(data as any);
-  }, []);
-
-  React.useEffect(() => {
-    getFirestoreDocs();
-  }, []);
-
-  const addTask = async (input: string) => {
-    const docRef = await addDoc(collection(db, "todos"), {
-      todo: input,
-      done: false,
-      timestamp: serverTimestamp(),
-    });
-    getFirestoreDocs();
-  };
-
-  const completed = React.useMemo(
-    () => todos.filter((todo: any) => todo.done == true),
-    [todos]
-  );
+  if (!auth.user) {
+    return <p style={{ color: "red" }}>You are not logged in.</p>;
+  }
 
   return (
-    <div className="wrapper">
-      <Header />
-      <TasksStatus
-        todos_completed={completed.length}
-        total_todos={todos.length}
-      />
-      <TaskForm todos={todos} addTask={addTask} />
-      <TasksList todos={todos} getFirestoreDocs={getFirestoreDocs} />
-    </div>
+    <p>
+      Welcome {auth.user}!{" "}
+      <button
+        onClick={() => {
+          auth.signout(() => navigate("/"));
+        }}
+      >
+        Sign out
+      </button>
+    </p>
+  );
+};
+
+function App() {
+  const user = null;
+  return (
+    <ThemeProvider theme={theme}>
+      <AuthProvider>
+        <BrowserRouter>
+          <Box
+            id="main-container"
+            sx={{
+              display: "flex",
+              flex: 1,
+              bgcolor: theme.palette.background.default,
+              width: "100%",
+              height: "100%",
+            }}
+          >
+            <AppHeader />
+            <Box
+              id="pages-container"
+              sx={{
+                mt: "120px",
+              }}
+            >
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/signup" element={<Signup />} />
+                <Route path="/login" element={<Login />} />
+                <Route
+                  path="/tasks"
+                  element={
+                    <RequireAuth>
+                      <Tasks />
+                    </RequireAuth>
+                  }
+                />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Box>
+          </Box>
+        </BrowserRouter>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 
-export default Home;
+export default App;
