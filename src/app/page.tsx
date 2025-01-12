@@ -19,6 +19,8 @@ import { Box } from "@mui/material";
 import AppHeader from "./components/AppHeader";
 import { theme } from "./styles/theme";
 import { AuthProvider, RequireAuth, useAuth } from "./context/AuthContext";
+import { Spinner } from "./components/Spinner";
+import Root from "./pages/Root";
 
 const pages = [
   { name: "signup", link: "/signup" },
@@ -26,30 +28,7 @@ const pages = [
   { name: "tasks", link: "/tasks" },
 ];
 
-const AuthStatus = () => {
-  let auth = useAuth();
-  let navigate = useNavigate();
-
-  if (!auth.user) {
-    return <p style={{ color: "red" }}>You are not logged in.</p>;
-  }
-
-  return (
-    <p>
-      Welcome {auth.user}!{" "}
-      <button
-        onClick={() => {
-          auth.signout(() => navigate("/"));
-        }}
-      >
-        Sign out
-      </button>
-    </p>
-  );
-};
-
 function App() {
-  const user = null;
   return (
     <ThemeProvider theme={theme}>
       <AuthProvider>
@@ -69,21 +48,25 @@ function App() {
               id="pages-container"
               sx={{
                 mt: "120px",
+                width: "100%",
               }}
             >
               <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/signup" element={<Signup />} />
-                <Route path="/login" element={<Login />} />
-                <Route
-                  path="/tasks"
-                  element={
-                    <RequireAuth>
-                      <Tasks />
-                    </RequireAuth>
-                  }
-                />
-                <Route path="*" element={<NotFound />} />
+                <Route path="/" element={<Root />}>
+                  <Route index element={<Home />} />
+                  <Route path="login" element={<Login />} />
+                  <Route path="signup" element={<Signup />} />
+
+                  <Route
+                    path="/tasks"
+                    element={
+                      <RequireAuth>
+                        <Tasks />
+                      </RequireAuth>
+                    }
+                  />
+                  <Route path="*" element={<NotFound />} />
+                </Route>
               </Routes>
             </Box>
           </Box>

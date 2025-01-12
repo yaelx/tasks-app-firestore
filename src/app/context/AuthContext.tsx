@@ -8,32 +8,32 @@ import {
   Navigate,
   Outlet,
 } from "react-router-dom";
-import { fakeAuthProvider } from "../auth";
+// import { fakeAuthProvider } from "../auth";
+import { auth, createUserFirestore, db } from "../firebase";
+import {
+  User,
+  UserCredential,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+} from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { Spinner } from "../components/Spinner";
 
-type User = {
-  localId?: string;
-  email?: string;
-  passwordHash?: string;
-  emailVerified?: boolean;
-  passwordUpdatedAt?: number;
-  providerUserInfo?: [
-    {
-      providerId: string;
-      federatedId: string;
-      email: string;
-      rawId: string;
-    }
-  ];
-  validSince?: string;
-  lastLoginAt?: string;
-  createdAt?: string;
-  lastRefreshAt?: string;
-};
+const wait = (t: number) =>
+  new Promise((resolve, reject) => setTimeout(resolve, t));
 
 interface AuthContextType {
   user: User | null;
-  signin: (user: string, callback: VoidFunction) => void;
-  signout: (callback: VoidFunction) => void;
+  loading: boolean;
+  signin: (email: string, password: string, callback?: () => void) => void;
+  signout: (callback?: () => void) => void;
+  createUser: (
+    username: string,
+    email: string,
+    password: string,
+    callback?: () => void
+  ) => void;
 }
 
 const AuthContext = React.createContext<AuthContextType>(null!);
@@ -43,25 +43,107 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  let [user, setUser] = React.useState<null | User>(null);
+  const [user, setUser] = React.useState<null | User>(null);
+  const [loading, setLoading] = React.useState<boolean>(false);
 
-  let signin = (newUser: any, callback: VoidFunction) => {
-    return fakeAuthProvider.signin(() => {
-      setUser(newUser);
-      callback();
+  React.useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        const userDoc = doc(db, "users", user.uid);
+        const userSnapshot = await getDoc(userDoc);
+        if (userSnapshot.exists()) {
+          setUser({ ...user, ...userSnapshot.data() });
+        } else {
+          setUser(user); // Fallback if no Firestore data
+        }
+      } else {
+        setUser(null);
+        console.log("user is logged out");
+      }
+      setLoading(false);
     });
+
+    return () => unsubscribe(); // Clean up the listener on unmount
+  }, []);
+
+  const createUser = async (
+    username: string,
+    email: string,
+    password: string,
+    callback?: () => void
+  ) => {
+    setLoading(true);
+    try {
+      const userCredential = await createUserFirestore(
+        username,
+        email,
+        password
+      );
+      console.log("User created:", userCredential.user);
+      setUser(userCredential.user);
+    } catch (error) {
+      console.error("Error creating user:", error);
+    } finally {
+      setLoading(false);
+      callback && callback();
+    }
   };
 
-  let signout = (callback: VoidFunction) => {
-    return fakeAuthProvider.signout(() => {
+  const signin = async (
+    email: string,
+    password: string,
+    callback?: () => void
+  ) => {
+    console.log("login action\n");
+    setLoading(() => true);
+    try {
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+      console.log(userCredential);
+      setUser(userCredential.user);
+    } catch (error: any) {
+      console.error("Sign-in error:", error.code, error.message);
+    } finally {
+      setTimeout(() => {
+        setLoading(false);
+      }, 3000);
+      //setLoading(false);
+      callback && callback();
+    }
+  };
+
+  const signout = async (callback?: () => void) => {
+    console.log("signout action\n");
+    setLoading(true);
+    try {
+      await signOut(auth);
+      console.log("Signed out successfully");
       setUser(null);
-      callback();
-    });
+    } catch (e) {
+      console.error("Error signing out: ", e);
+    } finally {
+      setTimeout(() => {
+        setLoading(false);
+      }, 3000);
+      callback && callback();
+    }
   };
 
-  const value = React.useMemo(() => ({ user, signin, signout }), []);
+  // const value = React.useMemo(
+  //   () => ({ user, signin, signout, createUser, loading }),
+  //   []
+  // );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider
+      value={{ user, signin, signout, createUser, loading }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = (): AuthContextType => {
@@ -69,18 +151,12 @@ export const useAuth = (): AuthContextType => {
 };
 
 export const RequireAuth: React.FC<AuthProviderProps> = ({ children }) => {
-  const context = useAuth();
-  if (!context) {
-    throw new Error("No provider was provided for ProductContext");
-  }
+  const { user, loading } = useAuth();
   const location = useLocation();
 
-  if (!context.user) {
-    // Redirect them to the /login page, but save the current location they were
-    // trying to go to when they were redirected. This allows us to send them
-    // along to that page after they login, which is a nicer user experience
-    // than dropping them off on the home page.
-    return <Navigate to="/login" state={{ from: location }} replace />;
+  if (!user) {
+    console.log("context has no user yet");
+    return <Navigate to="/" state={{ from: location }} />;
   }
 
   return children;

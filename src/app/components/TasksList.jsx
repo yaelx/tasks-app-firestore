@@ -1,31 +1,28 @@
 import React from "react";
-import { db } from "../firebase.js";
+
+import { doc, deleteDoc } from "firebase/firestore";
 import {
-  doc,
-  deleteDoc,
-  addDoc,
-  updateDoc,
-  collection,
-  serverTimestamp,
-} from "firebase/firestore";
-import { TextField } from "@mui/material";
-import List from "@mui/material/List";
-import ListItem from "@mui/material/ListItem";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemIcon from "@mui/material/ListItemIcon";
-import ListItemText from "@mui/material/ListItemText";
-import Checkbox from "@mui/material/Checkbox";
-import IconButton from "@mui/material/IconButton";
+  List,
+  FormControl,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Checkbox,
+  IconButton,
+  OutlinedInput,
+} from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
+import { deleteTaskDoc, updateTaskDoc } from "../firebase";
 
-function TasksList({ todos, getFirestoreDocs }) {
+function TasksList({ todos, fetchTasks }) {
   return (
     <List dense className="todo_list">
       {todos && todos.length > 0 ? (
-        todos?.map((item, index) => (
-          <Item key={index} item={item} getFirestoreDocs={getFirestoreDocs} />
+        todos?.map((item, _) => (
+          <Item key={item.id} item={item} fetchTasks={fetchTasks} />
         ))
       ) : (
         <p>No tasks yet</p>
@@ -34,22 +31,11 @@ function TasksList({ todos, getFirestoreDocs }) {
   );
 }
 
-function Item({ item, getFirestoreDocs }) {
+function Item({ item, fetchTasks }) {
   const [editing, setEditing] = React.useState(false);
   const inputRef = React.useRef();
-
-  const completeTodo = async () => {
-    const docRef = doc(db, "todos", item.id);
-    await updateDoc(docRef, { done: !!item.done ? !item.done : true }).then(
-      () => {
-        getFirestoreDocs();
-      }
-    );
-
-    // Update localStorage after marking todo as completed
-    // const updatedTodos = JSON.stringify(todos);
-    // localStorage.setItem("todos", updatedTodos);
-  };
+  const [formFields, setFormFields] = React.useState(item);
+  const { todo, done, id } = formFields;
 
   const handleEdit = () => {
     setEditing(true);
@@ -58,7 +44,6 @@ function Item({ item, getFirestoreDocs }) {
   React.useEffect(() => {
     if (editing && inputRef.current) {
       inputRef.current.focus();
-
       // position the cursor at the end of the text
       if (inputRef.current.value) {
         inputRef.current.setSelectionRange(
@@ -69,53 +54,60 @@ function Item({ item, getFirestoreDocs }) {
     }
   }, [editing]);
 
-  const handleInputChange = async (e) => {
-    // setTodos((prevTodos) =>
-    //   prevTodos.map((todo) =>
-    //     todo.id === item.id ? { ...todo, title: e.target.value } : todo
-    //   )
-    // );
-    // const docRef = doc(db, "todos", item.id);
-    // await updateDoc(docRef, { todo: e.target.value  });
-    // getFirestoreDocs();
-  };
-
-  const updateTask = async (e) => {
-    const docRef = doc(db, "todos", item.id);
-    updateDoc(docRef, {
-      todo: inputRef.current ? inputRef.current.value : "",
-    }).then(() => {
-      getFirestoreDocs();
+  const updateTask = async (updates) => {
+    try {
+      await updateTaskDoc(id, updates);
+    } catch (e) {
+      console.error("Error updating task: ", e);
+    } finally {
+      fetchTasks();
       setEditing(false);
-    });
+    }
   };
 
   const handleInpuSubmit = (event) => {
     event.preventDefault();
-    // // Update localStorage after editing todo
-    // const updatedTodos = JSON.stringify(todos);
-    // localStorage.setItem("todos", updatedTodos);
-    updateTask();
+    updateTask(formFields);
   };
 
-  const handleInputBlur = () => {
-    // Update localStorage after editing todo
-    // const updatedTodos = JSON.stringify(todos);
-    // localStorage.setItem("todos", updatedTodos);
-    setEditing(false);
-  };
+  // const handleInputBlur = () => {
+  //   // Update localStorage after editing todo
+  //   // const updatedTodos = JSON.stringify(todos);
+  //   // localStorage.setItem("todos", updatedTodos);
+  //   setEditing(false);
+  // };
 
   const handleDelete = async () => {
-    deleteDoc(doc(db, "todos", item.id)).then(() => {
-      getFirestoreDocs();
-    });
+    try {
+      await deleteTaskDoc(id);
+    } catch (e) {
+      console.error("Error deleting task: ", e);
+    } finally {
+      fetchTasks();
+    }
+  };
 
-    // setTodos((prevTodos) => prevTodos.filter((todo) => todo.id !== item.id));
-    // // Update localStorage after deleting todo
-    // const updatedTodos = JSON.stringify(
-    //   todos.filter((todo) => todo.id !== item.id)
-    // );
-    // localStorage.setItem("todos", updatedTodos);
+  const handleChange = (event) => {
+    event.preventDefault();
+    const { value } = event.target;
+    setFormFields((prev) => ({ ...prev, todo: value }));
+  };
+
+  const handleChangeDone = async (event) => {
+    event.preventDefault();
+    const { checked } = event.target;
+    setFormFields((prev) => {
+      const newTask = {
+        ...prev,
+        done: checked,
+      };
+      updateTask(newTask);
+      return newTask;
+    });
+  };
+
+  const handleSave = async () => {
+    updateTask(formFields);
   };
 
   return (
@@ -124,33 +116,56 @@ function Item({ item, getFirestoreDocs }) {
         <ListItem
           key={item.id}
           secondaryAction={
-            <IconButton edge="end" aria-label="save" onClick={updateTask}>
-              <SaveIcon color="white" fontSize="medium" />
+            <IconButton
+              edge="end"
+              aria-label="save"
+              onClick={() => handleSave()}
+            >
+              <SaveIcon fontSize="medium" />
             </IconButton>
           }
           disablePadding
           sx={{ bgcolor: "white" }}
         >
-          <ListItemButton role={undefined} onClick={completeTodo} dense>
+          <ListItemButton role={undefined} dense>
             <ListItemIcon>
               <Checkbox
                 edge="start"
-                checked={item.done}
+                checked={done}
                 tabIndex={-1}
                 disableRipple
+                onChange={handleChangeDone}
               />
             </ListItemIcon>
             <ListItemText
               primary={
+                // <form className="edit-form" onSubmit={handleInpuSubmit}>
+                //   <TextField
+                //     inputRef={inputRef}
+                //     variant="standard"
+                //     fullWidth
+                //     id="fullWidth"
+                //     defaultValue={item?.todo}
+                //     onBlur={handleInputBlur}
+                //   />
+                // </form>
                 <form className="edit-form" onSubmit={handleInpuSubmit}>
-                  <TextField
-                    inputRef={inputRef}
-                    variant="standard"
-                    fullWidth
-                    id="fullWidth"
-                    defaultValue={item?.todo}
-                    onBlur={handleInputBlur}
-                  />
+                  <FormControl
+                    sx={{ m: 1, width: "30ch" }}
+                    variant="outlined"
+                    onSubmit={handleInpuSubmit}
+                  >
+                    <OutlinedInput
+                      inputRef={inputRef}
+                      id="displayName-input"
+                      aria-describedby="displayName-input"
+                      value={todo}
+                      onChange={handleChange}
+                      // onBlur={handleInputBlur}
+                      placeholder="Enter a task"
+                      required
+                    />
+                  </FormControl>
                 </form>
               }
               sx={{ color: "black", fontSize: "16px" }}
@@ -163,27 +178,28 @@ function Item({ item, getFirestoreDocs }) {
           secondaryAction={
             <>
               <IconButton edge="end" aria-label="edit" onClick={handleEdit}>
-                <EditIcon color="white" fontSize="medium" />
+                <EditIcon fontSize="medium" />
               </IconButton>
               <IconButton edge="end" aria-label="delete" onClick={handleDelete}>
-                <DeleteIcon color="white" fontSize="medium" />
+                <DeleteIcon fontSize="medium" />
               </IconButton>
             </>
           }
           disablePadding
           sx={{ bgcolor: "white" }}
         >
-          <ListItemButton role={undefined} onClick={completeTodo} dense>
+          <ListItemButton role={undefined} dense>
             <ListItemIcon>
               <Checkbox
                 edge="start"
-                checked={item.done}
+                checked={formFields.done}
+                onChange={handleChangeDone}
                 tabIndex={-1}
                 disableRipple
               />
             </ListItemIcon>
             <ListItemText
-              primary={item.todo}
+              primary={formFields.todo}
               sx={{ color: "black", fontSize: "16px" }}
             />
           </ListItemButton>

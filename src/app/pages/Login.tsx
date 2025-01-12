@@ -3,6 +3,8 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { Typography } from "@mui/material";
+import { Spinner } from "../components/Spinner";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -11,35 +13,18 @@ const Login = () => {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const from = location.state?.from?.pathname || "/";
+  const [error, setError] = useState<string | null>(null);
 
-  const onLogin = (e: React.FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    let formData = new FormData(e.currentTarget);
-    let username = formData.get("username") as string;
-
-    auth.signin(username, () => {
-      // Send them back to the page they tried to visit when they were
-      // redirected to the login page. Use { replace: true } so we don't create
-      // another entry in the history stack for the login page.  This means that
-      // when they get to the protected page and click the back button, they
-      // won't end up back on the login page, which is also really nice for the
-      // user experience.
-      navigate(from, { replace: true });
-    });
-
-    // signInWithEmailAndPassword(auth, email, password)
-    //   .then((userCredential) => {
-    //     // Signed in
-    //     const user = userCredential.user;
-    //     navigate("/");
-    //     console.log(user);
-    //   })
-    //   .catch((error) => {
-    //     const errorCode = error.code;
-    //     const errorMessage = error.message;
-    //     console.log(errorCode, errorMessage);
-    //   });
+    try {
+      await auth.signin(email, password, () => {
+        navigate("/tasks", { replace: true });
+      });
+      x;
+    } catch (e: unknown) {
+      setError((e as Error).message);
+    }
   };
 
   return (
@@ -48,8 +33,7 @@ const Login = () => {
         <section>
           <div>
             <p> Focus App </p>
-
-            <form onSubmit={onLogin}>
+            <form onSubmit={onSubmit}>
               <div>
                 <label htmlFor="email-address">Email address</label>
                 <input
@@ -77,6 +61,7 @@ const Login = () => {
               <div>
                 <button type="submit">Login</button>
               </div>
+              {error && <Typography variant="body1">{error}</Typography>}
             </form>
 
             <p className="text-sm text-white text-center">

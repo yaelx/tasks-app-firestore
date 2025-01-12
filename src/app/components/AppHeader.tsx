@@ -14,15 +14,37 @@ import Tooltip from "@mui/material/Tooltip";
 import MenuItem from "@mui/material/MenuItem";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import AuthStatus from "./AuthStatus";
+import { useAuth } from "../context/AuthContext";
+import { User } from "firebase/auth";
 
 const pages = [
-  { name: "signup", link: "/signup" },
-  { name: "login", link: "/login" },
-  { name: "tasks", link: "/tasks" },
+  {
+    name: "signup",
+    link: "/signup",
+    show: (user: User | null) => {
+      return !user;
+    },
+  },
+  {
+    name: "login",
+    link: "/login",
+    show: (user: User | null) => {
+      return !user;
+    },
+  },
+  {
+    name: "tasks",
+    link: "/tasks",
+    show: (user: User | null) => {
+      return user;
+    },
+  },
 ];
 const settings = ["Profile", "Account", "Dashboard", "Logout"];
 
 const AppHeader = () => {
+  let auth = useAuth();
+
   const [anchorElNav, setAnchorElNav] = React.useState<null | HTMLElement>(
     null
   );
@@ -73,6 +95,7 @@ const AppHeader = () => {
           <Box sx={{ flexGrow: 1, display: { xs: "none", md: "flex" } }}>
             {pages.map((page) => (
               <Button
+                key={page.name}
                 component={NavLink}
                 to={page.link}
                 variant="contained"
